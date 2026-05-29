@@ -266,6 +266,13 @@ def run_server(host: str = "0.0.0.0", port: int = 8001):
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
+if __name__ == "__main__":
+    import uvicorn
+    print("🚀 启动 AI 工作流编排引擎...")
+    print("📎 访问 http://localhost:8001")
+    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="info")
+
+
 # ==================== 内嵌 HTML ====================
 
 HTML_PAGE = """<!DOCTYPE html>
