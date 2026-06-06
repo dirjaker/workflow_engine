@@ -1,3 +1,20 @@
+<div align="center">
+
+# ⚙️ Workflow Engine
+
+### DAG 工作流编排引擎
+
+[![节点](https://img.shields.io/badge/节点-6-blue?style=flat-square)]()
+[![API](https://img.shields.io/badge/API-5-green?style=flat-square)]()
+[![框架](https://img.shields.io/badge/框架-FastAPI-orange?style=flat-square)]()
+[![更新](https://img.shields.io/badge/更新-2025.06-red?style=flat-square)]()
+
+*DAG 依赖编排 · 节点并行执行 · 变量传递 · 断点恢复 · Web 监控*
+
+</div>
+
+---
+
 # AI 工作流编排引擎
 
 > 基于 DAG 的可视化 AI 工作流编排引擎，支持拖拽式编辑、多节点类型、并行调度与实时执行追踪。
@@ -268,3 +285,4 @@ workflow_engine/
 ## License
 
 MIT
+
