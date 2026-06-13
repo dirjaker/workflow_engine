@@ -286,3 +286,53 @@ workflow_engine/
 
 MIT
 
+
+---
+
+## Web 仪表盘
+
+独立的暗色主题仪表盘，管理工作流和执行。
+
+### 启动
+
+```bash
+python src/web/app.py
+# 访问 http://localhost:8083
+```
+
+### API 接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/workflows` | GET | 列出所有工作流 |
+| `/api/workflows` | POST | 创建工作流 |
+| `/api/workflows/{id}` | GET | 获取工作流详情 |
+| `/api/workflows/{id}` | DELETE | 删除工作流 |
+| `/api/workflows/{id}/run` | POST | 执行工作流 |
+| `/api/templates` | GET | 获取模板列表 |
+| `/api/stats` | GET | 系统统计 |
+
+### 仪表盘功能
+
+- 系统概览与节点类型展示
+- 工作流的创建、查看、删除
+- 一键执行工作流
+- 模板浏览
+
+---
+
+## macOS 应用
+
+### tkinter 桌面版
+
+```bash
+python src/macos/app.py
+```
+
+### py2app 打包
+
+```bash
+# 在 macOS 上执行
+python packaging/py2app_setup.py py2app
+# 产物位于 dist/Workflow Engine.app
+```

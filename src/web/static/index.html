@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workflow Engine - 工作流编排仪表盘</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
+header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:20px;color:#58a6ff;font-weight:600}
+header .status{display:flex;align-items:center;gap:8px;font-size:13px;color:#8b949e}
+header .dot{width:8px;height:8px;border-radius:50%;background:#3fb950}
+.container{max-width:1200px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px}
+.card h2{font-size:16px;color:#58a6ff;margin-bottom:16px;font-weight:600}
+.card.full{grid-column:1/-1}
+label{display:block;font-size:13px;color:#8b949e;margin-bottom:6px}
+textarea,input[type=text]{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px 12px;color:#c9d1d9;font-size:14px;resize:vertical;font-family:inherit}
+textarea:focus,input:focus{outline:none;border-color:#58a6ff}
+textarea{min-height:60px}
+button{background:#238636;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:14px;cursor:pointer;font-weight:500;margin-top:10px}
+button:hover{background:#2ea043}
+button.secondary{background:#21262d;border:1px solid #30363d;color:#c9d1d9}
+button.secondary:hover{background:#30363d}
+button.accent{background:#58a6ff;color:#0d1117}
+button.accent:hover{background:#79c0ff}
+.result{margin-top:12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-size:13px;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;display:none;line-height:1.6}
+.result.show{display:block}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.stat-box{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;text-align:center}
+.stat-box .num{font-size:28px;font-weight:700;color:#58a6ff}
+.stat-box .lbl{font-size:12px;color:#8b949e;margin-top:4px}
+.wf-list{max-height:300px;overflow-y:auto;margin-top:10px}
+.wf-item{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.wf-item .name{font-weight:600;color:#58a6ff}
+.wf-item .meta{font-size:12px;color:#8b949e}
+.wf-item .actions{display:flex;gap:6px}
+.wf-item .actions button{margin:0;padding:4px 12px;font-size:12px}
+.node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:10px}
+.node-chip{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;text-align:center;font-size:12px}
+.node-chip .type{color:#58a6ff;font-weight:600}
+.node-chip .desc{color:#8b949e;margin-top:4px;font-size:11px}
+.template-list{margin-top:10px}
+.template-item{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px;margin-bottom:8px;font-size:13px}
+.template-item .name{color:#58a6ff;font-weight:600}
+.template-item .desc{color:#8b949e;font-size:12px;margin-top:4px}
+.footer{text-align:center;padding:24px;font-size:12px;color:#484f58}
+@media(max-width:768px){.container{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+    <h1>Workflow Engine - 工作流编排仪表盘</h1>
+    <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">检查中...</span></div>
+</header>
+
+<div class="container">
+    <!-- 统计 -->
+    <div class="card full">
+        <h2>系统概览</h2>
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-box"><div class="num" id="statWF">--</div><div class="lbl">工作流数量</div></div>
+        </div>
+        <h2 style="margin-top:16px">节点类型</h2>
+        <div class="node-grid" id="nodeTypes">
+            <div class="node-chip"><div class="type">start</div><div class="desc">开始节点</div></div>
+            <div class="node-chip"><div class="type">end</div><div class="desc">结束节点</div></div>
+            <div class="node-chip"><div class="type">llm</div><div class="desc">LLM 调用</div></div>
+            <div class="node-chip"><div class="type">code</div><div class="desc">代码执行</div></div>
+            <div class="node-chip"><div class="type">tool</div><div class="desc">工具调用</div></div>
+            <div class="node-chip"><div class="type">condition</div><div class="desc">条件判断</div></div>
+            <div class="node-chip"><div class="type">transform</div><div class="desc">数据转换</div></div>
+        </div>
+        <button class="secondary" onclick="loadStats()" style="margin-top:12px">刷新统计</button>
+    </div>
+
+    <!-- 创建工作流 -->
+    <div class="card">
+        <h2>创建工作流</h2>
+        <label>名称</label>
+        <input type="text" id="wfName" placeholder="我的工作流">
+        <label style="margin-top:8px">描述</label>
+        <textarea id="wfDesc" placeholder="工作流描述..."></textarea>
+        <button onclick="createWorkflow()">创建工作流</button>
+        <div class="result" id="createResult"></div>
+    </div>
+
+    <!-- 工作流列表 -->
+    <div class="card">
+        <h2>工作流列表</h2>
+        <button class="secondary" onclick="loadWorkflows()">刷新列表</button>
+        <div class="wf-list" id="wfList"></div>
+    </div>
+
+    <!-- 执行工作流 -->
+    <div class="card full">
+        <h2>执行工作流</h2>
+        <label>选择工作流 ID</label>
+        <input type="text" id="runWfId" placeholder="工作流 ID">
+        <label style="margin-top:8px">输入参数 (JSON)</label>
+        <input type="text" id="runInputs" placeholder='{"key": "value"}'>
+        <button class="accent" onclick="runWorkflow()">执行</button>
+        <div class="result" id="runResult"></div>
+    </div>
+
+    <!-- 模板 -->
+    <div class="card full">
+        <h2>工作流模板</h2>
+        <button class="secondary" onclick="loadTemplates()">加载模板</button>
+        <div class="template-list" id="templateList"></div>
+    </div>
+</div>
+
+<div class="footer">Workflow Engine v1.0 - DAG 工作流编排引擎</div>
+
+<script>
+const API = '';
+
+async function api(method, path, body) {
+    const opts = {method, headers:{'Content-Type':'application/json'}};
+    if(body) opts.body = JSON.stringify(body);
+    const r = await fetch(API + path, opts);
+    return r.json();
+}
+
+function show(id, data) {
+    const el = document.getElementById(id);
+    el.classList.add('show');
+    el.textContent = JSON.stringify(data, null, 2);
+}
+
+async function checkHealth() {
+    try {
+        await api('GET', '/api/health');
+        document.getElementById('statusDot').style.background = '#3fb950';
+        document.getElementById('statusText').textContent = '服务运行中';
+    } catch(e) {
+        document.getElementById('statusDot').style.background = '#da3633';
+        document.getElementById('statusText').textContent = '服务不可用';
+    }
+}
+
+async function loadStats() {
+    const d = await api('GET', '/api/stats');
+    document.getElementById('statWF').textContent = d.workflows || 0;
+}
+
+async function createWorkflow() {
+    const name = document.getElementById('wfName').value;
+    const description = document.getElementById('wfDesc').value;
+    if(!name.trim()) return;
+    const r = await api('POST', '/api/workflows', {name, description});
+    show('createResult', r);
+    loadWorkflows();
+    loadStats();
+}
+
+async function loadWorkflows() {
+    const d = await api('GET', '/api/workflows');
+    const el = document.getElementById('wfList');
+    el.innerHTML = '';
+    const list = Array.isArray(d) ? d : (d.workflows || []);
+    if(!list.length) {
+        el.innerHTML = '<div style="color:#8b949e;font-size:13px;padding:12px">暂无工作流</div>';
+        return;
+    }
+    list.forEach(wf => {
+        const id = wf.id || wf.workflow_id || '';
+        const name = wf.name || '未命名';
+        const desc = wf.description || '';
+        el.innerHTML += `<div class="wf-item">
+            <div><div class="name">${name}</div><div class="meta">${desc || id}</div></div>
+            <div class="actions">
+                <button class="accent" onclick="document.getElementById('runWfId').value='${id}'">选择</button>
+            </div>
+        </div>`;
+    });
+}
+
+async function runWorkflow() {
+    const id = document.getElementById('runWfId').value;
+    let inputs = {};
+    try { inputs = JSON.parse(document.getElementById('runInputs').value || '{}'); } catch(e) {}
+    if(!id.trim()) return;
+    show('runResult', {message: '执行中...'});
+    const r = await api('POST', `/api/workflows/${id}/run`, {inputs});
+    show('runResult', r);
+}
+
+async function loadTemplates() {
+    const d = await api('GET', '/api/templates');
+    const el = document.getElementById('templateList');
+    el.innerHTML = '';
+    const list = d.templates || d;
+    if(Array.isArray(list)) {
+        list.forEach(t => {
+            el.innerHTML += `<div class="template-item"><div class="name">${t.name}</div><div class="desc">${t.description}</div></div>`;
+        });
+    }
+}
+
+checkHealth();
+loadStats();
+loadWorkflows();
+</script>
+</body>
+</html>
