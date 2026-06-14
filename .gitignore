@@ -4,3 +4,7 @@ __pycache__/
 data/
 .env
 *.db
+
+# VitePress build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
