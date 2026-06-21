@@ -3,12 +3,58 @@
 import json
 import re
 import logging
+import ast
 from datetime import datetime
 
 from models import Node, NodeType, NodeStatus
 from dag_executor import NodeExecutor, ExecutionContext
 
 logger = logging.getLogger(__name__)
+
+
+SAFE_BUILTINS = {
+    'abs': abs, 'all': all, 'any': any, 'bool': bool, 'dict': dict,
+    'enumerate': enumerate, 'filter': filter, 'float': float, 'frozenset': frozenset,
+    'getattr': getattr, 'hasattr': hasattr, 'hash': hash, 'int': int,
+    'isinstance': isinstance, 'issubclass': issubclass, 'iter': iter, 'len': len,
+    'list': list, 'map': map, 'max': max, 'min': min, 'next': next,
+    'object': object, 'print': print, 'property': property, 'range': range,
+    'repr': repr, 'reversed': reversed, 'round': round, 'set': set,
+    'slice': slice, 'sorted': sorted, 'str': str, 'sum': sum,
+    'tuple': tuple, 'type': type, 'zip': zip, 'True': True, 'False': False, 'None': None,
+}
+
+
+def safe_exec(code: str, context: dict = None) -> dict:
+    """Safe exec: no imports, no dunder access, no dangerous builtins"""
+    dangerous = ['import', '__import__', 'eval(', 'exec(', 'compile(', 'open(',
+                 'os.', 'sys.', 'subprocess', 'shutil', 'pathlib', '__builtins__',
+                 '__globals__', '__locals__', 'getattr(', 'setattr(', 'delattr(']
+    for d in dangerous:
+        if d in code:
+            raise ValueError(f"Blocked dangerous pattern: {d}")
+    tree = ast.parse(code)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            raise ValueError("Import statements not allowed")
+    sandbox = {'__builtins__': SAFE_BUILTINS}
+    if context:
+        sandbox.update(context)
+    exec(compile(tree, '<sandbox>', 'exec'), sandbox)
+    return {k: v for k, v in sandbox.items() if not k.startswith('_')}
+
+
+def safe_eval(expr: str, context: dict = None) -> any:
+    """Safe eval: no imports, no dunder access"""
+    dangerous = ['import', '__import__', 'eval(', 'exec(', 'compile(', 'open(',
+                 'os.', 'sys.', 'subprocess', '__builtins__', '__globals__']
+    for d in dangerous:
+        if d in expr:
+            raise ValueError(f"Blocked dangerous pattern: {d}")
+    sandbox = {'__builtins__': SAFE_BUILTINS}
+    if context:
+        sandbox.update(context)
+    return eval(expr, sandbox)
 
 
 class StartNodeExecutor(NodeExecutor):
@@ -169,14 +215,8 @@ class ConditionNodeExecutor(NodeExecutor):
         # 插值变量
         expression = context.interpolate(expression)
 
-        # 限制可用的内置函数（安全沙箱）
-        safe_builtins = {
-            "len": len, "str": str, "int": int, "float": float,
-            "bool": bool, "list": list, "dict": dict, "type": type,
-            "isinstance": isinstance, "hasattr": hasattr,
-        }
         try:
-            return bool(eval(expression, {"__builtins__": safe_builtins}, inputs))
+            return bool(safe_eval(expression, inputs))
         except Exception as e:
             raise ValueError(f"条件表达式评估失败: {expression} → {e}")
 
@@ -220,20 +260,10 @@ class CodeNodeExecutor(NodeExecutor):
             "datetime": datetime,
         }
 
-        # 安全的内置函数
-        safe_builtins = {
-            "print": print, "len": len, "str": str, "int": int, "float": float,
-            "bool": bool, "list": list, "dict": dict, "tuple": tuple, "set": set,
-            "range": range, "enumerate": enumerate, "zip": zip, "map": map,
-            "filter": filter, "sorted": sorted, "reversed": reversed,
-            "isinstance": isinstance, "hasattr": hasattr, "getattr": getattr,
-            "abs": abs, "round": round, "min": min, "max": max, "sum": sum,
-        }
-        exec_globals["__builtins__"] = safe_builtins
-
         try:
-            exec(code, exec_globals)
-            return exec_globals.get("outputs", {})
+            exec_context = {k: v for k, v in exec_globals.items() if k != '__builtins__'}
+            result = safe_exec(code, exec_context)
+            return result.get("outputs", {})
         except Exception as e:
             raise ValueError(f"代码执行失败: {e}")
 
@@ -263,15 +293,10 @@ class TransformNodeExecutor(NodeExecutor):
             "json": json,
             "re": re,
         }
-        exec_globals["__builtins__"] = {
-            "len": len, "str": str, "int": int, "float": float,
-            "bool": bool, "list": list, "dict": dict,
-            "isinstance": isinstance,
-        }
-
         try:
-            exec(code, exec_globals)
-            return exec_globals.get("outputs", inputs)
+            exec_context = {k: v for k, v in exec_globals.items() if k != '__builtins__'}
+            result = safe_exec(code, exec_context)
+            return result.get("outputs", inputs)
         except Exception as e:
             raise ValueError(f"数据转换失败: {e}")
 

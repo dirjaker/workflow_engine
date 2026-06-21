@@ -1,5 +1,6 @@
 """FastAPI Web 服务 — 工作流编排引擎 API"""
 
+import os
 import json
 import logging
 from datetime import datetime
@@ -21,7 +22,8 @@ executors = create_default_executors()  # 无模型客户端，使用模拟模�
 executor = DAGExecutor(executors)
 
 app = FastAPI(title="AI 工作流编排引擎", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost,http://127.0.0.1").split(",")
+app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
 
 
 class RunRequest(BaseModel):
